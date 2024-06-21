@@ -39,6 +39,7 @@ pub struct XdrRecordReader<R: BufRead> {
     size: usize, // record size
     consumed: usize, // bytes consumed
     eor: bool, // is last record
+    implicit_eor: bool,
 
     reader: R, // reader
 }
@@ -52,7 +53,12 @@ impl<R: BufRead> XdrRecordReader<R> {
             consumed: 0,
             eor: false,
             reader: rd,
+            implicit_eor: false,
         }
+    }
+
+    pub fn set_implicit_eor(&mut self, implicit: bool) {
+        self.implicit_eor = implicit;
     }
 
     // read next record, returns true on EOF
@@ -166,7 +172,9 @@ impl<R: BufRead> Iterator for XdrRecordReaderIter<R> {
                     Err(e) => return Some(Err(e)),  // error
                 };
 
-                if eor {
+                if rr.implicit_eor && buf.len() == remains {
+                    break;
+                } else if eor {
                     break;
                 }
             }
