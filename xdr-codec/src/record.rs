@@ -196,6 +196,7 @@ pub struct XdrRecordWriter<W: Write> {
     bufsz: usize, // max fragment size
     eor: bool, // last fragment was eor
     writer: W, // writer we're passing on to
+    implicit_eor: bool, // Do not use MSB as EOR
 }
 
 impl<W: Write> XdrRecordWriter<W> {
@@ -216,6 +217,7 @@ impl<W: Write> XdrRecordWriter<W> {
             bufsz: bufsz,
             eor: false,
             writer: w,
+            implicit_eor: false,
         }
     }
 
@@ -226,7 +228,10 @@ impl<W: Write> XdrRecordWriter<W> {
             return Ok(());
         }
 
-        let rechdr = self.buf.len() as u32 | (if eor { LAST_REC } else { 0 });
+        let mut rechdr = self.buf.len() as u32;
+        if !self.implicit_eor && eor {
+            rechdr |= LAST_REC;
+        }
 
         pack(&rechdr, &mut self.writer).map_err(mapioerr)?;
         let _ = self.writer.write_all(&self.buf).map(|_| ())?;
@@ -234,6 +239,10 @@ impl<W: Write> XdrRecordWriter<W> {
 
         self.eor = eor;
         self.writer.flush()
+    }
+
+    pub fn set_implicit_eor(&mut self, implicit: bool) {
+        self.implicit_eor = implicit;
     }
 }
 
